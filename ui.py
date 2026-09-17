@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QInputDialog
 )
 
-from curve_editor import CurveEditor
+from curve_editor import CurveEditor, MAX_CURVE_VALUE
 from open_vr_wrapper import find_controllers, get_controller_state, make_state
 from hardware import PedalSensor
 from controller import update_virtual_gamepad, calculate_steering
@@ -71,16 +71,12 @@ class JoystickWorker(QtCore.QThread):
         s_right = None
 
         while True:
-        #     current_pps = window.pedal.get_pps()
-        #     # current_pps = 20
-        #     # print(current_pps)
-        #     scaled_input = current_pps * pedalSensitivity
-        #     curve_lut = window.pedalCurve.get_or_build_curve_mapping()
-        #     output_magnitude = window.interpolate_curve(scaled_input, curve_lut)
-
-        #     print("out mag", output_magnitude)
-        #     window.update_pedal_curve_input(output_magnitude)
-        #     # self.update_graph_input_display.emit(output_magnitude)
+            current_pps = window.pedal.get_pps()
+            pedal_scaled_input = current_pps * pedalSensitivity
+            curve_lut = window.pedalCurve.get_or_build_curve_mapping()
+            pedal_magnitude = window.interpolate_curve(pedal_scaled_input, curve_lut)
+            window.update_pedal_curve_input(pedal_magnitude)
+            pedal_trigger = pedal_magnitude / MAX_CURVE_VALUE
 
             poses = (
                 window.vr.getDeviceToAbsoluteTrackingPose(
@@ -138,7 +134,6 @@ class JoystickWorker(QtCore.QThread):
             # =================================================
 
             raw_steering = 0.0
-            side = "WAIT"
 
             if (
                 current_state is not None and
@@ -148,10 +143,7 @@ class JoystickWorker(QtCore.QThread):
                 window.max_pulse_per_sec is not None
             ):
 
-                (
-                    raw_steering,
-                    side
-                ) = calculate_steering(
+                raw_steering = calculate_steering(
                     current_state,
                     window.state_center,
                     axis,
@@ -159,17 +151,13 @@ class JoystickWorker(QtCore.QThread):
                     s_right
                 )
 
-                smoothed_steering += (
-                    raw_steering
-                    - smoothed_steering
-                ) * steeringSmoothing
+                steering_scaled_input = raw_steering * steeringSensitivity
+                steering_curve_lut = window.steeringCurve.get_or_build_curve_mapping()
+                steering_magnitude = window.interpolate_curve(steering_scaled_input, steering_curve_lut)
+                window.update_steering_curve_input(steering_magnitude)
+                steering_stick_x = pedal_magnitude / MAX_CURVE_VALUE
+                steering_stick_y = 0.0
 
-                if (
-                    abs(raw_steering)
-                    < 0.01
-                ):
-
-                    side = "CENTER"
 
             # =================================================
             # XBOX
@@ -177,10 +165,9 @@ class JoystickWorker(QtCore.QThread):
 
             update_virtual_gamepad(
                 window.gamepad,
-                window.pedal,
-                window.max_pulse_per_sec,
-                smoothed_steering,
-                steeringSensitivity,
+                steering_stick_x,
+                steering_stick_y,
+                pedal_trigger,
                 left_controller_state,
                 right_controller_state
             )
@@ -591,177 +578,7 @@ class MainWindow(QWidget):
             self.max_pulse_per_sec = current_pps
 
 
-def main():
-
-    # --------------------------------------------------------
-    # Calibração
-    # --------------------------------------------------------
-
-    max_pulse_per_sec = None
-
-    state_center = None
-    state_left = None
-    state_right = None
-
-    axis = None
-
-    s_left = None
-    s_right = None
-
-    calibration_complete = False
-
-    while True:
-        # =================================================
-        # OPENVR
-        # =================================================
-
-        poses = (
-            vr.getDeviceToAbsoluteTrackingPose(
-                openvr.TrackingUniverseStanding,
-                0,
-                openvr.k_unMaxTrackedDeviceCount
-            )
-        )
-
-        (
-            left_pos,
-            right_pos,
-            left_index,
-            right_index
-        ) = find_controllers(
-            vr,
-            poses
-        )
-
-        left_controller_state = (
-            get_controller_state(
-                vr,
-                left_index
-            )
-        )
-
-        right_controller_state = (
-            get_controller_state(
-                vr,
-                right_index
-            )
-        )
-
-        # =================================================
-        # ESTADO DO GUIDÃO
-        # =================================================
-
-        current_state = None
-
-        if (
-            left_pos is not None
-            and
-            right_pos is not None
-        ):
-
-            current_state = (
-                make_state(
-                    left_pos,
-                    right_pos
-                )
-            )
-
-        # =================================================
-        # STEERING
-        # =================================================
-
-        raw_steering = 0.0
-        side = "WAIT"
-
-        if (
-            current_state is not None
-            and
-            calibration_complete
-        ):
-
-            (
-                raw_steering,
-                side
-            ) = calculate_steering(
-                current_state,
-                state_center,
-                axis,
-                s_left,
-                s_right
-            )
-
-            smoothed_steering += (
-                raw_steering
-                - smoothed_steering
-            ) * steeringSmoothing
-
-            if (
-                abs(raw_steering)
-                < 0.01
-            ):
-
-                side = "CENTER"
-
-        # =================================================
-        # XBOX
-        # =================================================
-
-        (
-            stick_x,
-            stick_y,
-            l2,
-            r2
-        ) = update_virtual_gamepad(
-            gamepad,
-            pedal,
-            max_pulse_per_sec,
-            smoothed_steering,
-            steeringSensitivity,
-            left_controller_state,
-            right_controller_state
-        )
-
-        # =================================================
-        # DISPLAY
-        # =================================================
-
-        if calibration_complete:
-
-            print(
-                "\r"
-                f"{side:6} "
-                f"| físico={raw_steering:+.3f} "
-                f"| smooth={smoothed_steering:+.3f} "
-                f"| sens={steeringSensitivity:.2f} "
-                f"| Xbox analog={stick_x:+.3f} "
-                f"| R2 ={r2:+.3f}       ",
-                end="",
-                flush=True
-            )
-
-        time.sleep(
-            loopInterval
-        )
-
-
-try:
-    
-    # openvr.init(
-    #     openvr.VRApplication_Other
-    # )
-
-    # vr = openvr.VRSystem()
-
-    # gamepad = (
-    #     vg.VX360Gamepad()
-    # )
-
-    # pedal = None
-
-    # if usePedalTracking:
-    #     pedal = PedalSensor(serialPort, baudRate)
-    #     pedal.start()    
-    
+try:    
     app = QApplication([])
     window = MainWindow()
     window.show()
@@ -771,13 +588,4 @@ try:
 
     app.exec()
 except KeyboardInterrupt:
-    try:
-    
-        gamepad.reset()
-        gamepad.update()
-
-    except Exception:
-
-        pass
-
     openvr.shutdown()

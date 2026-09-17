@@ -4,7 +4,7 @@ from PyQt6.QtGui import QPainter, QPen, QColor, QMouseEvent, QIcon
 from PyQt6.QtCore import Qt, QPointF, QSize
 
 
-MAX_OUTPUT = 100
+MAX_CURVE_VALUE = 100
 
 class CurveEditor(QWidget):
     def __init__(self, parent=None):
@@ -74,7 +74,7 @@ class CurveEditor(QWidget):
         painter.setPen(QPen(self.palette().text().color()))
 
         if self.current_input is not None:
-            x = self.margin + (self.current_input / MAX_OUTPUT) * self.graph_width
+            x = self.margin + (self.current_input / MAX_CURVE_VALUE) * self.graph_width
 
             # Interpolate Y position based on self.points
             y = self.interpolate_y_from_points(self.current_input)
@@ -160,9 +160,9 @@ class CurveEditor(QWidget):
     def build_curve_mapping(self):
         mapping = []
         for p in self.points:
-            input_x = ((p.x() - self.margin) / self.graph_width) * MAX_OUTPUT
+            input_x = ((p.x() - self.margin) / self.graph_width) * MAX_CURVE_VALUE
             output_y = (
-                ((self.margin + self.graph_height) - p.y()) / self.graph_height * MAX_OUTPUT
+                ((self.margin + self.graph_height) - p.y()) / self.graph_height * MAX_CURVE_VALUE
             )
             mapping.append((int(input_x), int(output_y)))
         return mapping
@@ -195,8 +195,8 @@ class CurveEditor(QWidget):
         self.update()
 
     def interpolate_y_from_points(self, input_val: int) -> float | None:
-        """Given an input value (0-MAX_OUTPUT), return the Y position for the green dot."""
-        px = self.margin + (input_val / MAX_OUTPUT) * self.graph_width
+        """Given an input value (0-MAX_CURVE_VALUE), return the Y position for the green dot."""
+        px = self.margin + (input_val / MAX_CURVE_VALUE) * self.graph_width
 
         for i in range(len(self.points) - 1):
             x1 = self.points[i].x()

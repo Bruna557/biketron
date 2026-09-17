@@ -64,27 +64,3 @@ def build_calibration(
         s_left,
         s_right
     )
-
-
-def calibrate_center(current_state):
-    if current_state is None:
-    
-        print()
-        print(
-            "Os dois Sense precisam "
-            "estar rastreados."
-        )
-
-        return
-
-    state_center = (
-        current_state.copy()
-    )
-
-    calibration_complete = False
-
-    print()
-    print(
-        "CENTRO salvo."
-    )
-
