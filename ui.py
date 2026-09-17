@@ -98,8 +98,6 @@ class JoystickWorker(QtCore.QThread):
             speed_with_gain = speed * pedalSensitivity
             speed_with_gain = max(0.0, min(speed_with_gain, 1.0))
 
-            print("aaaaaaaaaa", steeringSensitivity)
-
             # filtered_speed += (speed_with_gain - filtered_speed) * pedalSmoothing
             # filtered_speed = (
             #     filtered_speed * (1.0 - pedalSmoothing) + speed_with_gain * pedalSmoothing
@@ -162,8 +160,6 @@ class JoystickWorker(QtCore.QThread):
                         current_state, window.state_center, axis, s_left, s_right
                     )
 
-                    print("raw steering", raw_steering)
-
                     steering_scaled_input = abs(raw_steering) * steeringSensitivity
                     steering_curve_points = (
                         window.steeringCurve.get_or_build_curve_mapping()
@@ -192,15 +188,7 @@ class JoystickWorker(QtCore.QThread):
                 )
 
                 print(f"stickX: {steering_stick_x}  pedal: {pedal_trigger}")
-            else:
-                window.current_state = [
-                    1.123424,
-                    2.145234214234,
-                    3.23543453454353,
-                    4.25235325345,
-                    5.2535345345,
-                    6.2525435345,
-                ]
+
             time.sleep(loopInterval)
 
 
@@ -442,11 +430,9 @@ class MainWindow(QWidget):
         latest_config_name = next(
             (f for f in os.listdir(CONFIG_DIR) if f.startswith("latest_")), None
         )
-        print(latest_config_name)
         if latest_config_name:
             try:
                 latest_config_path = os.path.join(CONFIG_DIR, latest_config_name)
-                print(latest_config_path)
                 with open(latest_config_path, "r") as f:
                     config = json.load(f)
                     self.apply_config(config)
