@@ -23,18 +23,15 @@ class PedalSensor:
 
         self.lock = threading.Lock()
 
+        self.initialized = False
+        self.samples = []
+
         # Última amostra recebida do ESP32
         self.last_pulse_count = None
         self.last_timestamp = None
 
         # PPS calculado
         self.pps = 0.0
-
-        # Para diagnóstico
-        self.current_pulse_count = 0
-        self.current_timestamp = 0
-
-        self.last_receive_time = 0.0
 
 
     # ========================================================
@@ -110,6 +107,8 @@ class PedalSensor:
                 )
 
                 if raw:
+
+                    # print(raw)
 
                     self._parse_response(
                         raw
@@ -187,77 +186,37 @@ class PedalSensor:
         timestamp
     ):
 
-        with self.lock:
+        if not self.initialized:
+            self.last_pulse_count = pulse_count
+            self.last_timestamp = timestamp
+            self.initialized = True
 
-            # ----------------------------------------------------
-            # Temos uma amostra anterior?
-            # ----------------------------------------------------
+        new_pulses = pulse_count - self.last_pulse_count
+        time_delta_ms = timestamp - self.last_timestamp
 
-            if (
-                self.last_pulse_count
-                is not None
-                and
-                self.last_timestamp
-                is not None
-            ):
+        self.last_pulse_count = pulse_count
+        self.last_timestamp = timestamp
 
-                delta_pulses = (
-                    pulse_count
-                    - self.last_pulse_count
-                )
+        interval_s = time_delta_ms / 1000.0 if time_delta_ms > 0 else self.poll_interval
+        instant_pps = new_pulses / interval_s if interval_s > 0 else 0.0
 
-                delta_ms = (
-                    timestamp
-                    - self.last_timestamp
-                )
+        # Rolling-window pace: average pulses over ~speed_window_s so a steady stride
+        # (push spike + recovery dip) reads as one steady speed instead of oscillating.
+        window_s = 0.8
+        if window_s > 0:
+            self.samples.append((timestamp, pulse_count))
+            cutoff = timestamp - window_s * 1000.0
+            while len(self.samples) > 2 and self.samples[0][0] < cutoff:
+                self.samples.pop(0)
+            span_ms = timestamp - self.samples[0][0]
+            span_pulses = pulse_count - self.samples[0][1]
+            pulses_per_sec = span_pulses / (span_ms / 1000.0) if span_ms > 0 else instant_pps
+        else:
+            pulses_per_sec = instant_pps
 
-                # ------------------------------------------------
-                # Proteção contra reset do ESP32
-                # ------------------------------------------------
-
-                if (
-                    delta_pulses >= 0
-                    and
-                    delta_ms > 0
-                ):
-
-                    delta_seconds = (
-                        delta_ms / 1000.0
-                    )
-
-                    self.pps = (
-                        delta_pulses
-                        / delta_seconds
-                    )
-
-                else:
-
-                    # Provável reset/wrap
-                    self.pps = 0.0
-
-            # ----------------------------------------------------
-            # Guarda amostra atual
-            # ----------------------------------------------------
-
-            self.last_pulse_count = (
-                pulse_count
-            )
-
-            self.last_timestamp = (
-                timestamp
-            )
-
-            self.current_pulse_count = (
-                pulse_count
-            )
-
-            self.current_timestamp = (
-                timestamp
-            )
-
-            self.last_receive_time = (
-                time.monotonic()
-            )
+        self.pps = pulses_per_sec
+        self.last_timestamp = timestamp
+        self.last_pulse_count = pulse_count        
 
 
     # ========================================================
@@ -266,31 +225,21 @@ class PedalSensor:
 
     def get_pps(self):
 
-        with self.lock:
+        # with self.lock:
 
-            pps = self.pps
+        #     pps = self.pps
 
-            age = (
-                time.monotonic()
-                - self.last_receive_time
-            )
+        #     age = (
+        #         time.monotonic()
+        #         - self.last_receive_time
+        #     )
 
-        # Sem resposta recente = acelerador zero
-        if age > 0.5:
-            return 0.0
+        # # Sem resposta recente = acelerador zero
+        # if age > 0.5:
+        #     return 0.0
 
-        return pps
-
-
-    def get_debug(self):
-
-        with self.lock:
-
-            return (
-                self.current_pulse_count,
-                self.current_timestamp,
-                self.pps
-            )
+        # return pps
+        return self.pps
 
 
     # ========================================================

@@ -5,7 +5,7 @@ import numpy as np
 import openvr
 import vgamepad as vg
 
-from sensor import PedalSensor
+from hardware import PedalSensor
 
 
 # ============================================================
@@ -262,7 +262,6 @@ def calculate_steering(
 
     return (
         steering,
-        float(s),
         side
     )
 
@@ -603,9 +602,7 @@ def main():
 
     global STEERING_SENSITIVITY
 
-    print(
-        "Iniciando OpenVR..."
-    )
+    print("Iniciando OpenVR...")
 
     openvr.init(
         openvr.VRApplication_Other
@@ -613,23 +610,19 @@ def main():
 
     vr = openvr.VRSystem()
 
-    print(
-        "Criando Xbox 360 virtual..."
-    )
+    print("Criando Xbox 360 virtual...")
 
     gamepad = (
         vg.VX360Gamepad()
     )
 
+    print("Conectando pedal...")
+
     pedal = None
-
-    if ENABLE_PEDAL:        
-        pedal = PedalSensor(
-            port="COM3",
-            baudrate=115200
-        )
-
-    pedal.start()
+    
+    if ENABLE_PEDAL:
+        pedal = PedalSensor("COM3", 115200)
+        pedal.start() 
 
     # --------------------------------------------------------
     # Calibração
@@ -766,7 +759,6 @@ def main():
             # =================================================
 
             raw_steering = 0.0
-            scalar_position = 0.0
             side = "WAIT"
 
             if (
@@ -777,7 +769,6 @@ def main():
 
                 (
                     raw_steering,
-                    scalar_position,
                     side
                 ) = calculate_steering(
                     current_state,
@@ -786,13 +777,6 @@ def main():
                     s_left,
                     s_right
                 )
-
-                # ---------------------------------------------
-                # SOMENTE smoothing.
-                #
-                # SEM deadzone.
-                # SEM curva exponencial.
-                # ---------------------------------------------
 
                 smoothed_steering += (
                     raw_steering
