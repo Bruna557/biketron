@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QCheckBox,
     QComboBox,
-    QInputDialog
+    QInputDialog,
 )
 
 from curve_editor import CurveEditor, MAX_CURVE_VALUE
@@ -60,14 +60,7 @@ class JoystickWorker(QtCore.QThread):
         self.mouseDeltaHistory = []
 
     def run(self):
-        global \
-            window, \
-            pedalSensitivity, \
-            pedalSmoothing, \
-            pedalDeadzone, \
-            steeringSensitivity, \
-            steeringSmoothing, \
-            loopInterval
+        global window, pedalSensitivity, pedalSmoothing, pedalDeadzone, steeringSensitivity, steeringSmoothing, loopInterval
 
         print("running worker")
 
@@ -77,10 +70,10 @@ class JoystickWorker(QtCore.QThread):
         except:
             self.vr = None
             print("Unable to connect to openvr. Won't use steering.")
-    
-        self.gamepad = (vg.VX360Gamepad())
 
-        pedal = None        
+        self.gamepad = vg.VX360Gamepad()
+
+        pedal = None
         if usePedalTracking:
             pedal = PedalSensor(serialPort, baudRate)
             pedal.start()
@@ -97,7 +90,11 @@ class JoystickWorker(QtCore.QThread):
         while True:
             current_pps = self.pedal.get_pps()
 
-            speed = current_pps / window.max_pulse_per_sec if window.max_pulse_per_sec else 0.0
+            speed = (
+                current_pps / window.max_pulse_per_sec
+                if window.max_pulse_per_sec
+                else 0.0
+            )
             speed_with_gain = speed * pedalSensitivity
             speed_with_gain = max(0.0, min(speed_with_gain, 1.0))
 
@@ -111,42 +108,24 @@ class JoystickWorker(QtCore.QThread):
             #     filtered_speed = 0.0
 
             pedal_curve_points = window.pedalCurve.get_or_build_curve_mapping()
-            pedal_magnitude = window.interpolate_curve(speed_with_gain * MAX_CURVE_VALUE, pedal_curve_points)
+            pedal_magnitude = window.interpolate_curve(
+                speed_with_gain * MAX_CURVE_VALUE, pedal_curve_points
+            )
             window.update_pedal_curve_input(pedal_magnitude)
             pedal_trigger = pedal_magnitude / MAX_CURVE_VALUE
 
-            if (self.vr):
-                poses = (
-                    self.vr.getDeviceToAbsoluteTrackingPose(
-                        openvr.TrackingUniverseStanding,
-                        0,
-                        openvr.k_unMaxTrackedDeviceCount
-                    )
+            if self.vr:
+                poses = self.vr.getDeviceToAbsoluteTrackingPose(
+                    openvr.TrackingUniverseStanding, 0, openvr.k_unMaxTrackedDeviceCount
                 )
 
-                (
-                    left_pos,
-                    right_pos,
-                    left_index,
-                    right_index
-                ) = find_controllers(
-                    self.vr,
-                    poses
+                left_pos, right_pos, left_index, right_index = find_controllers(
+                    self.vr, poses
                 )
 
-                left_controller_state = (
-                    get_controller_state(
-                        self.vr,
-                        left_index
-                    )
-                )
+                left_controller_state = get_controller_state(self.vr, left_index)
 
-                right_controller_state = (
-                    get_controller_state(
-                        self.vr,
-                        right_index
-                    )
-                )
+                right_controller_state = get_controller_state(self.vr, right_index)
 
                 # =================================================
                 # ESTADO DO GUIDÃO
@@ -154,18 +133,9 @@ class JoystickWorker(QtCore.QThread):
 
                 current_state = None
 
-                if (
-                    left_pos is not None
-                    and
-                    right_pos is not None
-                ):
+                if left_pos is not None and right_pos is not None:
 
-                    current_state = (
-                        make_state(
-                            left_pos,
-                            right_pos
-                        )
-                    )
+                    current_state = make_state(left_pos, right_pos)
                     window.current_state = current_state
 
                 # =================================================
@@ -176,39 +146,37 @@ class JoystickWorker(QtCore.QThread):
                 steering_stick_y = 0.0
 
                 if (
-                    current_state is not None and
-                    window.state_center is not None and 
-                    window.state_right is not None and 
-                    window.state_left is not None and
-                    window.max_pulse_per_sec is not None
+                    current_state is not None
+                    and window.state_center is not None
+                    and window.state_right is not None
+                    and window.state_left is not None
+                    and window.max_pulse_per_sec is not None
                 ):
-                    if (not calibration_complete):
+                    if not calibration_complete:
                         calibration_complete = True
-                        (
-                            axis,
-                            s_left,
-                            s_right
-                        ) = build_calibration(
-                            window.state_left,
-                            window.state_center,
-                            window.state_right
+                        axis, s_left, s_right = build_calibration(
+                            window.state_left, window.state_center, window.state_right
                         )
 
-                    (raw_steering, side) = calculate_steering(
-                        current_state,
-                        window.state_center,
-                        axis,
-                        s_left,
-                        s_right
+                    raw_steering, side = calculate_steering(
+                        current_state, window.state_center, axis, s_left, s_right
                     )
 
                     print("raw steering", raw_steering)
 
                     steering_scaled_input = abs(raw_steering) * steeringSensitivity
-                    steering_curve_points = window.steeringCurve.get_or_build_curve_mapping()
-                    steering_magnitude = window.interpolate_curve(steering_scaled_input * MAX_CURVE_VALUE, steering_curve_points)
+                    steering_curve_points = (
+                        window.steeringCurve.get_or_build_curve_mapping()
+                    )
+                    steering_magnitude = window.interpolate_curve(
+                        steering_scaled_input * MAX_CURVE_VALUE, steering_curve_points
+                    )
                     window.update_steering_curve_input(abs(steering_magnitude))
-                    steering_stick_x = steering_magnitude * (-1 if side == "LEFT" else 1) / MAX_CURVE_VALUE
+                    steering_stick_x = (
+                        steering_magnitude
+                        * (-1 if side == "LEFT" else 1)
+                        / MAX_CURVE_VALUE
+                    )
 
                 # =================================================
                 # XBOX
@@ -220,12 +188,19 @@ class JoystickWorker(QtCore.QThread):
                     steering_stick_y,
                     pedal_trigger,
                     left_controller_state,
-                    right_controller_state
+                    right_controller_state,
                 )
 
                 print(f"stickX: {steering_stick_x}  pedal: {pedal_trigger}")
             else:
-                window.current_state = [1.123424, 2.145234214234, 3.23543453454353, 4.25235325345, 5.2535345345, 6.2525435345]
+                window.current_state = [
+                    1.123424,
+                    2.145234214234,
+                    3.23543453454353,
+                    4.25235325345,
+                    5.2535345345,
+                    6.2525435345,
+                ]
             time.sleep(loopInterval)
 
 
@@ -275,7 +250,9 @@ class MainWindow(QWidget):
         self.loadConfigButton = QPushButton("Load Config")
         self.loadConfigButton.setToolTip("Load the selected configuration.")
         self.saveConfigButton = QPushButton("Save Config")
-        self.saveConfigButton.setToolTip("Save the current settings under a custom name.")
+        self.saveConfigButton.setToolTip(
+            "Save the current settings under a custom name."
+        )
 
         self.loadConfigButton.clicked.connect(self.load_config)
         self.saveConfigButton.clicked.connect(lambda: self.save_config())
@@ -295,9 +272,13 @@ class MainWindow(QWidget):
         self.steeringSensitivityLine.setRange(0.0, 100.0)
         self.steeringSensitivityLine.setSingleStep(0.5)
         self.steeringSensitivityLine.setDecimals(1)
-        self.steeringSensitivityLine.setLocale(QtCore.QLocale(QtCore.QLocale.Language.C))
+        self.steeringSensitivityLine.setLocale(
+            QtCore.QLocale(QtCore.QLocale.Language.C)
+        )
         self.steeringSensitivityLine.setValue(steeringSensitivity)
-        self.steeringSensitivityLine.setToolTip("Adjust the sensitivity multiplier for mouse movement to joystick input.")
+        self.steeringSensitivityLine.setToolTip(
+            "Adjust the sensitivity multiplier for mouse movement to joystick input."
+        )
         self.steeringSensitivityLine.textChanged.connect(self.setSteeringSensitivity)
 
         self.steeringSmoothingLine = QDoubleSpinBox()
@@ -306,7 +287,9 @@ class MainWindow(QWidget):
         self.steeringSmoothingLine.setDecimals(1)
         self.steeringSmoothingLine.setLocale(QtCore.QLocale(QtCore.QLocale.Language.C))
         self.steeringSmoothingLine.setValue(steeringSensitivity)
-        self.steeringSmoothingLine.setToolTip("Adjust the temporal do tracking smoothing; 1.0 = no smoothing.")
+        self.steeringSmoothingLine.setToolTip(
+            "Adjust the temporal do tracking smoothing; 1.0 = no smoothing."
+        )
         self.steeringSmoothingLine.textChanged.connect(self.setSteeringSmoothing)
 
         steeringLayout.addRow("Sensitivity:", self.steeringSensitivityLine)
@@ -315,10 +298,14 @@ class MainWindow(QWidget):
         steeringGroup.setLayout(steeringLayout)
 
         steeringCurveGroup = QGroupBox("Steering Sensitivity Curve")
-        steeringCurveGroup.setToolTip("Fine-tune how sensitivity scales with movement using a custom curve.")
+        steeringCurveGroup.setToolTip(
+            "Fine-tune how sensitivity scales with movement using a custom curve."
+        )
         steeringCurveLayout = QVBoxLayout()
         self.steeringCurve = CurveEditor()
-        self.steeringCurve.setToolTip("Left-click + drag to move. Double-click to add. Right-click to delete.")
+        self.steeringCurve.setToolTip(
+            "Left-click + drag to move. Double-click to add. Right-click to delete."
+        )
         steeringCurveLayout.addWidget(self.steeringCurve)
         steeringCurveGroup.setLayout(steeringCurveLayout)
 
@@ -332,11 +319,15 @@ class MainWindow(QWidget):
         self.pedalSensitivityLine.setDecimals(1)
         self.pedalSensitivityLine.setLocale(QtCore.QLocale(QtCore.QLocale.Language.C))
         self.pedalSensitivityLine.setValue(steeringSensitivity)
-        self.pedalSensitivityLine.setToolTip("Adjust the sensitivity multiplier for mouse movement to joystick input.")
+        self.pedalSensitivityLine.setToolTip(
+            "Adjust the sensitivity multiplier for mouse movement to joystick input."
+        )
         self.pedalSensitivityLine.textChanged.connect(self.setPedalSensitivity)
 
         self.usePedalCheckbox = QCheckBox("Pedal Tracking")
-        self.usePedalCheckbox.setToolTip("Use pulses from the backwheel sensor to control in-game speed. If disabled, control speed with R2.")
+        self.usePedalCheckbox.setToolTip(
+            "Use pulses from the backwheel sensor to control in-game speed. If disabled, control speed with R2."
+        )
         self.usePedalCheckbox.setChecked(usePedalTracking)
         self.usePedalCheckbox.stateChanged.connect(self.togglePedalTracking)
 
@@ -346,10 +337,14 @@ class MainWindow(QWidget):
         pedalGroup.setLayout(pedalLayout)
 
         pedalCurveGroup = QGroupBox("Pedal Sensitivity Curve")
-        pedalCurveGroup.setToolTip("Fine-tune how sensitivity scales with movement using a custom curve.")
+        pedalCurveGroup.setToolTip(
+            "Fine-tune how sensitivity scales with movement using a custom curve."
+        )
         pedalCurveLayout = QVBoxLayout()
         self.pedalCurve = CurveEditor()
-        self.pedalCurve.setToolTip("Left-click + drag to move. Double-click to add. Right-click to delete.")
+        self.pedalCurve.setToolTip(
+            "Left-click + drag to move. Double-click to add. Right-click to delete."
+        )
         pedalCurveLayout.addWidget(self.pedalCurve)
         pedalCurveGroup.setLayout(pedalCurveLayout)
 
@@ -360,13 +355,15 @@ class MainWindow(QWidget):
         calibrationPpsLabel.setText("Current state:")
         self.calibrationPpsLine = QLineEdit(str(self.max_pulse_per_sec or 0))
         self.calibratePps = QPushButton("Calibrate")
-        self.calibratePps.setToolTip("Pedal at your max confortable speed, then click this button.")
+        self.calibratePps.setToolTip(
+            "Pedal at your max confortable speed, then click this button."
+        )
         self.calibratePps.clicked.connect(self.setPps)
         ppsLayout.addWidget(calibrationPpsLabel)
         ppsLayout.addWidget(self.calibrationPpsLine)
         ppsLayout.addWidget(self.calibratePps)
         ppsCalibrationGroup.setLayout(ppsLayout)
-        
+
         centerCalibrationGroup = QGroupBox("Center Calibration")
         centerLayout = QVBoxLayout()
         calibrationCenterLabel = QLabel()
@@ -374,7 +371,9 @@ class MainWindow(QWidget):
         self.calibrationCenterLine = QLabel()
         self.calibrationCenterLine.setText(self.state_center or "0.00, 0.00, 0.00")
         self.calibrateCenter = QPushButton("Calibrate")
-        self.calibrateCenter.setToolTip("Move the steering to the central position, then click this button.")
+        self.calibrateCenter.setToolTip(
+            "Move the steering to the central position, then click this button."
+        )
         self.calibrateCenter.clicked.connect(self.setCenter)
         centerLayout.addWidget(calibrationCenterLabel)
         centerLayout.addWidget(self.calibrationCenterLine)
@@ -388,7 +387,9 @@ class MainWindow(QWidget):
         self.calibrationRightLine = QLabel()
         self.calibrationRightLine.setText(self.state_right or "0.00, 0.00, 0.00")
         self.calibrateRight = QPushButton("Calibrate")
-        self.calibrateRight.setToolTip("Move the steering close to 90° right, then click this button.")
+        self.calibrateRight.setToolTip(
+            "Move the steering close to 90° right, then click this button."
+        )
         self.calibrateRight.clicked.connect(self.setRight)
         rightLayout.addWidget(calibrationRightLabel)
         rightLayout.addWidget(self.calibrationRightLine)
@@ -402,7 +403,9 @@ class MainWindow(QWidget):
         self.calibrationLeftLine = QLabel()
         self.calibrationLeftLine.setText(self.state_left or "0.00, 0.00, 0.00")
         self.calibrateLeft = QPushButton("Calibrate")
-        self.calibrateLeft.setToolTip("Move the steering close to 90° left, then click this button.")
+        self.calibrateLeft.setToolTip(
+            "Move the steering close to 90° left, then click this button."
+        )
         self.calibrateLeft.clicked.connect(self.setLeft)
         leftLayout.addWidget(calibrationLeftLabel)
         leftLayout.addWidget(self.calibrationLeftLine)
@@ -415,7 +418,7 @@ class MainWindow(QWidget):
         column1 = QVBoxLayout()
         column2 = QVBoxLayout()
         column3 = QVBoxLayout()
-        
+
         column1.addWidget(internalSettingsGroup)
         column1.addWidget(steeringGroup)
         column1.addWidget(steeringCurveGroup)
@@ -436,7 +439,9 @@ class MainWindow(QWidget):
         self.show()
         self.worker.start_loop()
 
-        latest_config_name = next((f for f in os.listdir(CONFIG_DIR) if f.startswith("latest_")), None)
+        latest_config_name = next(
+            (f for f in os.listdir(CONFIG_DIR) if f.startswith("latest_")), None
+        )
         print(latest_config_name)
         if latest_config_name:
             try:
@@ -502,15 +507,11 @@ class MainWindow(QWidget):
             return curve[-1][1]
 
     def update_pedal_curve_input(self, input_value: int):
-        if (
-            hasattr(self, "pedalCurve")
-        ):
+        if hasattr(self, "pedalCurve"):
             self.pedalCurve.set_current_input(input_value)
 
     def update_steering_curve_input(self, input_value: int):
-        if (
-            hasattr(self, "steeringCurve")
-        ):
+        if hasattr(self, "steeringCurve"):
             self.steeringCurve.set_current_input(input_value)
 
     def get_current_config(self):
@@ -523,22 +524,32 @@ class MainWindow(QWidget):
             "pedal_sensitivity": self.pedalSensitivityLine.text(),
             "max_pulse_per_sec": self.calibrationPpsLine.text(),
             "use_pedal_tracking": self.usePedalCheckbox.isChecked(),
-            "steering_curve_points": self.steeringCurve.serialize_points()
+            "steering_curve_points": (
+                self.steeringCurve.serialize_points()
                 if hasattr(self, "steeringCurve")
-                else None,
-            "pedal_curve_points": self.pedalCurve.serialize_points()
+                else None
+            ),
+            "pedal_curve_points": (
+                self.pedalCurve.serialize_points()
                 if hasattr(self, "pedalCurve")
-                else None,
+                else None
+            ),
         }
 
     def apply_config(self, config):
         self.serialPortLine.setText(str(config.get("serial_port_line", "COM3")))
         self.baudRateLine.setText(str(config.get("baud_rate_line", "115200")))
         self.loopIntervalLine.setText(str(config.get("loop_interval", "0.01")))
-        self.steeringSensitivityLine.setValue(float(config.get("steering_sensitivity", "1.00")))
-        self.steeringSmoothingLine.setValue(float(config.get("steering_smoothing", "0.25")))
-        self.pedalSensitivityLine.setValue(float(config.get("pedal_sensitivity", "1.00")))
-        self.usePedalCheckbox.setChecked(config.get("use_pedal_tracking", True))     
+        self.steeringSensitivityLine.setValue(
+            float(config.get("steering_sensitivity", "1.00"))
+        )
+        self.steeringSmoothingLine.setValue(
+            float(config.get("steering_smoothing", "0.25"))
+        )
+        self.pedalSensitivityLine.setValue(
+            float(config.get("pedal_sensitivity", "1.00"))
+        )
+        self.usePedalCheckbox.setChecked(config.get("use_pedal_tracking", True))
 
         max_pps = config.get("max_pulse_per_sec", "0")
         self.max_pulse_per_sec = int(max_pps)
@@ -564,10 +575,12 @@ class MainWindow(QWidget):
                 return
             name = text.strip()
         elif name.startswith("latest_"):
-            old_latest = next((f for f in os.listdir(CONFIG_DIR) if f.startswith("latest_")), None)
+            old_latest = next(
+                (f for f in os.listdir(CONFIG_DIR) if f.startswith("latest_")), None
+            )
             if old_latest:
                 path = os.path.join(CONFIG_DIR, old_latest)
-                if (path):
+                if path:
                     os.remove(path)
 
         config = self.get_current_config()
@@ -599,28 +612,30 @@ class MainWindow(QWidget):
         self.configDropdown.clear()
         configs = [f[:-5] for f in os.listdir(CONFIG_DIR) if f.endswith(".json")]
 
-        if (name is not None):
+        if name is not None:
             configs.insert(0, configs.pop(configs.index(name)).replace("latest_", ""))
 
         self.configDropdown.addItems(configs)
 
     def setCenter(self):
-        if self.current_state is None:        
+        if self.current_state is None:
             print("Both Sense controllers must be connected")
         else:
             self.state_center = self.current_state.copy()
             print(self.state_center)
-            self.calibrationCenterLine.setText(self.format_sense_state(self.state_center))
+            self.calibrationCenterLine.setText(
+                self.format_sense_state(self.state_center)
+            )
 
     def setRight(self):
-        if self.current_state is None:        
+        if self.current_state is None:
             print("Both Sense controllers must be connected")
         else:
             self.state_right = self.current_state.copy()
             self.calibrationRightLine.setText(self.format_sense_state(self.state_right))
 
     def setLeft(self):
-        if self.current_state is None:        
+        if self.current_state is None:
             print("Both Sense controllers must be connected")
         else:
             self.state_left = self.current_state.copy()
@@ -634,7 +649,8 @@ class MainWindow(QWidget):
     def format_sense_state(self, state):
         return ", ".join(map(lambda x: str(x)[0:4], state))[:-18]
 
-try:    
+
+try:
     app = QApplication([])
     window = MainWindow()
     window.show()

@@ -12,10 +12,7 @@ def make_state(left_pos, right_pos):
     """
 
     return np.concatenate(
-        (
-            np.asarray(left_pos, dtype=float),
-            np.asarray(right_pos, dtype=float)
-        )
+        (np.asarray(left_pos, dtype=float), np.asarray(right_pos, dtype=float))
     )
 
 
@@ -27,14 +24,9 @@ def find_controllers(vr, poses):
     left_index = None
     right_index = None
 
-    for i in range(
-        openvr.k_unMaxTrackedDeviceCount
-    ):
+    for i in range(openvr.k_unMaxTrackedDeviceCount):
 
-        if (
-            vr.getTrackedDeviceClass(i)
-            != openvr.TrackedDeviceClass_Controller
-        ):
+        if vr.getTrackedDeviceClass(i) != openvr.TrackedDeviceClass_Controller:
             continue
 
         pose = poses[i]
@@ -42,45 +34,23 @@ def find_controllers(vr, poses):
         if not pose.bPoseIsValid:
             continue
 
-        role = (
-            vr.getControllerRoleForTrackedDeviceIndex(i)
-        )
+        role = vr.getControllerRoleForTrackedDeviceIndex(i)
 
-        matrix = (
-            pose.mDeviceToAbsoluteTracking
-        )
+        matrix = pose.mDeviceToAbsoluteTracking
 
-        position = np.array(
-            [
-                matrix[0][3],
-                matrix[1][3],
-                matrix[2][3]
-            ],
-            dtype=float
-        )
+        position = np.array([matrix[0][3], matrix[1][3], matrix[2][3]], dtype=float)
 
-        if (
-            role
-            == openvr.TrackedControllerRole_LeftHand
-        ):
+        if role == openvr.TrackedControllerRole_LeftHand:
 
             left_position = position
             left_index = i
 
-        elif (
-            role
-            == openvr.TrackedControllerRole_RightHand
-        ):
+        elif role == openvr.TrackedControllerRole_RightHand:
 
             right_position = position
             right_index = i
 
-    return (
-        left_position,
-        right_position,
-        left_index,
-        right_index
-    )
+    return (left_position, right_position, left_index, right_index)
 
 
 def get_controller_state(vr, device_index):
@@ -90,11 +60,7 @@ def get_controller_state(vr, device_index):
 
     try:
 
-        success, state = (
-            vr.getControllerState(
-                device_index
-            )
-        )
+        success, state = vr.getControllerState(device_index)
 
         if not success:
             return None

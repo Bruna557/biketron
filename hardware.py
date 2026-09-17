@@ -4,18 +4,11 @@ import time
 
 
 class PedalSensor:
-    def __init__(
-        self,
-        port="COM3",
-        baudrate=115200,
-        poll_hz=20.0
-    ):
+    def __init__(self, port="COM3", baudrate=115200, poll_hz=20.0):
         self.port = port
         self.baudrate = baudrate
 
-        self.poll_interval = (
-            1.0 / poll_hz
-        )
+        self.poll_interval = 1.0 / poll_hz
 
         self.serial = None
         self.thread = None
@@ -33,18 +26,13 @@ class PedalSensor:
         # PPS calculado
         self.pps = 0.0
 
-
     # ========================================================
     # START
     # ========================================================
 
     def start(self):
 
-        self.serial = serial.Serial(
-            self.port,
-            self.baudrate,
-            timeout=0.2
-        )
+        self.serial = serial.Serial(self.port, self.baudrate, timeout=0.2)
 
         # ESP32 frequentemente reseta quando abre a serial.
         # Dá tempo para ele voltar.
@@ -56,10 +44,7 @@ class PedalSensor:
 
         self.running = True
 
-        self.thread = threading.Thread(
-            target=self._poll_loop,
-            daemon=True
-        )
+        self.thread = threading.Thread(target=self._poll_loop, daemon=True)
 
         self.thread.start()
 
@@ -68,7 +53,6 @@ class PedalSensor:
             f"{self.port} "
             f"({1.0 / self.poll_interval:.1f} Hz)"
         )
-
 
     # ========================================================
     # POLLING
@@ -96,29 +80,17 @@ class PedalSensor:
                 # Espera resposta
                 # ------------------------------------------------
 
-                raw = (
-                    self.serial
-                    .readline()
-                    .decode(
-                        "utf-8",
-                        errors="ignore"
-                    )
-                    .strip()
-                )
+                raw = self.serial.readline().decode("utf-8", errors="ignore").strip()
 
                 if raw:
 
                     # print(raw)
 
-                    self._parse_response(
-                        raw
-                    )
+                    self._parse_response(raw)
 
             except serial.SerialException as e:
 
-                print(
-                    f"\nErro serial: {e}"
-                )
+                print(f"\nErro serial: {e}")
 
                 time.sleep(0.5)
 
@@ -126,31 +98,19 @@ class PedalSensor:
             # Mantém frequência aproximadamente constante
             # ----------------------------------------------------
 
-            elapsed = (
-                time.monotonic()
-                - cycle_start
-            )
+            elapsed = time.monotonic() - cycle_start
 
-            sleep_time = (
-                self.poll_interval
-                - elapsed
-            )
+            sleep_time = self.poll_interval - elapsed
 
             if sleep_time > 0:
 
-                time.sleep(
-                    sleep_time
-                )
-
+                time.sleep(sleep_time)
 
     # ========================================================
     # PARSE
     # ========================================================
 
-    def _parse_response(
-        self,
-        raw
-    ):
+    def _parse_response(self, raw):
 
         try:
 
@@ -159,32 +119,20 @@ class PedalSensor:
             if len(parts) != 2:
                 return
 
-            pulse_count = int(
-                parts[0]
-            )
+            pulse_count = int(parts[0])
 
-            timestamp = int(
-                parts[1]
-            )
+            timestamp = int(parts[1])
 
         except ValueError:
             return
 
-        self._process_sample(
-            pulse_count,
-            timestamp
-        )
-
+        self._process_sample(pulse_count, timestamp)
 
     # ========================================================
     # PPS
     # ========================================================
 
-    def _process_sample(
-        self,
-        pulse_count,
-        timestamp
-    ):
+    def _process_sample(self, pulse_count, timestamp):
 
         if not self.initialized:
             self.last_pulse_count = pulse_count
@@ -210,14 +158,15 @@ class PedalSensor:
                 self.samples.pop(0)
             span_ms = timestamp - self.samples[0][0]
             span_pulses = pulse_count - self.samples[0][1]
-            pulses_per_sec = span_pulses / (span_ms / 1000.0) if span_ms > 0 else instant_pps
+            pulses_per_sec = (
+                span_pulses / (span_ms / 1000.0) if span_ms > 0 else instant_pps
+            )
         else:
             pulses_per_sec = instant_pps
 
         self.pps = pulses_per_sec
         self.last_timestamp = timestamp
-        self.last_pulse_count = pulse_count        
-
+        self.last_pulse_count = pulse_count
 
     # ========================================================
     # GETTERS
@@ -241,7 +190,6 @@ class PedalSensor:
         # return pps
         return self.pps
 
-
     # ========================================================
     # STOP
     # ========================================================
@@ -252,9 +200,7 @@ class PedalSensor:
 
         if self.thread is not None:
 
-            self.thread.join(
-                timeout=1.0
-            )
+            self.thread.join(timeout=1.0)
 
         if self.serial is not None:
 

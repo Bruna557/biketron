@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtGui import QPainter, QPen, QColor, QMouseEvent, QIcon
 from PyQt6.QtCore import Qt, QPointF, QSize
 
-
 MAX_CURVE_VALUE = 100
+
 
 class CurveEditor(QWidget):
     def __init__(self, parent=None):
@@ -162,7 +162,9 @@ class CurveEditor(QWidget):
         for p in self.points:
             input_x = ((p.x() - self.margin) / self.graph_width) * MAX_CURVE_VALUE
             output_y = (
-                ((self.margin + self.graph_height) - p.y()) / self.graph_height * MAX_CURVE_VALUE
+                ((self.margin + self.graph_height) - p.y())
+                / self.graph_height
+                * MAX_CURVE_VALUE
             )
             mapping.append((int(input_x), int(output_y)))
         return mapping

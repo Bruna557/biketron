@@ -20,11 +20,7 @@ import openvr
 
 
 def bits(value):
-    return [
-        i
-        for i in range(64)
-        if value & (1 << i)
-    ]
+    return [i for i in range(64) if value & (1 << i)]
 
 
 openvr.init(openvr.VRApplication_Other)
@@ -43,47 +39,33 @@ last_states = {}
 try:
     while True:
 
-        for i in range(
-            openvr.k_unMaxTrackedDeviceCount
-        ):
+        for i in range(openvr.k_unMaxTrackedDeviceCount):
 
-            if (
-                vr.getTrackedDeviceClass(i)
-                != openvr.TrackedDeviceClass_Controller
-            ):
+            if vr.getTrackedDeviceClass(i) != openvr.TrackedDeviceClass_Controller:
                 continue
 
             try:
-                success, state = (
-                    vr.getControllerState(i)
-                )
+                success, state = vr.getControllerState(i)
             except Exception:
                 continue
 
             if not success:
                 continue
 
-            role = (
-                vr.getControllerRoleForTrackedDeviceIndex(i)
-            )
+            role = vr.getControllerRoleForTrackedDeviceIndex(i)
 
             # Captura absolutamente tudo que conseguimos
             current = (
                 state.ulButtonPressed,
                 state.ulButtonTouched,
-
                 state.rAxis[0].x,
                 state.rAxis[0].y,
-
                 state.rAxis[1].x,
                 state.rAxis[1].y,
-
                 state.rAxis[2].x,
                 state.rAxis[2].y,
-
                 state.rAxis[3].x,
                 state.rAxis[3].y,
-
                 state.rAxis[4].x,
                 state.rAxis[4].y,
             )
@@ -93,33 +75,15 @@ try:
             if previous != current:
 
                 print()
-                print(
-                    f"Device {i} | role={role}"
-                )
+                print(f"Device {i} | role={role}")
 
-                print(
-                    f"Pressed raw: "
-                    f"{state.ulButtonPressed}"
-                )
+                print(f"Pressed raw: " f"{state.ulButtonPressed}")
 
-                print(
-                    "Pressed bits:",
-                    bits(
-                        state.ulButtonPressed
-                    )
-                )
+                print("Pressed bits:", bits(state.ulButtonPressed))
 
-                print(
-                    f"Touched raw: "
-                    f"{state.ulButtonTouched}"
-                )
+                print(f"Touched raw: " f"{state.ulButtonTouched}")
 
-                print(
-                    "Touched bits:",
-                    bits(
-                        state.ulButtonTouched
-                    )
-                )
+                print("Touched bits:", bits(state.ulButtonTouched))
 
                 for axis in range(5):
 

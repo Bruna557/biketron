@@ -7,12 +7,11 @@ import vgamepad as vg
 
 from hardware import PedalSensor
 
-
 # ============================================================
 # CONFIGURAÇÃO
 # ============================================================
 
-ENABLE_PEDAL = True # true lê do ESP32; false lê o R2 do sense controller
+ENABLE_PEDAL = True  # true lê do ESP32; false lê o R2 do sense controller
 
 LOOP_INTERVAL = 0.01
 
@@ -44,66 +43,42 @@ SENSITIVITY_STEP = 0.05
 # ============================================================
 
 SENSE_TO_XBOX = {
-
     # --------------------------------------------------------
     # FACE BUTTONS
     # --------------------------------------------------------
-
     # Square -> X
-    ("left", 7):
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
-
+    ("left", 7): vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
     # Triangle -> Y
-    ("left", 1):
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
-
+    ("left", 1): vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
     # Cross -> A
-    ("right", 7):
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
-
+    ("right", 7): vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
     # Circle -> B
-    ("right", 1):
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
-
-
+    ("right", 1): vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
     # --------------------------------------------------------
     # SHOULDERS
     # --------------------------------------------------------
-
     # L1 -> LB
-    ("left", 34):
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
-
+    ("left", 34): vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
     # R1 -> RB
     ("right", 34):
-        # vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
-
-
+    # vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+    vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
     # --------------------------------------------------------
     # CREATE / OPTIONS
     # --------------------------------------------------------
-
     # # Create -> Back / View
     # ("left", 5):
     #     vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
-
     # # Options -> Start / Menu
     # ("right", 5):
     #     vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
-
-
     # --------------------------------------------------------
     # STICK CLICK
     # --------------------------------------------------------
-
     # L3
-    ("left", 32):
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
-
+    ("left", 32): vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
     # R3
-    ("right", 32):
-        vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
+    ("right", 32): vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
 }
 
 
@@ -124,6 +99,7 @@ R2_AXIS = 1
 # ESTADO 6D
 # ============================================================
 
+
 def make_state(left_pos, right_pos):
     """
     Estado completo do guidão:
@@ -134,10 +110,7 @@ def make_state(left_pos, right_pos):
     """
 
     return np.concatenate(
-        (
-            np.asarray(left_pos, dtype=float),
-            np.asarray(right_pos, dtype=float)
-        )
+        (np.asarray(left_pos, dtype=float), np.asarray(right_pos, dtype=float))
     )
 
 
@@ -145,38 +118,24 @@ def make_state(left_pos, right_pos):
 # CALIBRAÇÃO
 # ============================================================
 
-def build_calibration(
-    state_left,
-    state_center,
-    state_right
-):
+
+def build_calibration(state_left, state_center, state_right):
     """
     Cria eixo LEFT -> RIGHT no espaço 6D.
     """
 
-    axis = (
-        state_right
-        - state_left
-    )
+    axis = state_right - state_left
 
     length = np.linalg.norm(axis)
 
     if length < 1e-6:
-        raise ValueError(
-            "LEFT e RIGHT ficaram praticamente iguais."
-        )
+        raise ValueError("LEFT e RIGHT ficaram praticamente iguais.")
 
     axis = axis / length
 
-    s_left = np.dot(
-        state_left - state_center,
-        axis
-    )
+    s_left = np.dot(state_left - state_center, axis)
 
-    s_right = np.dot(
-        state_right - state_center,
-        axis
-    )
+    s_right = np.dot(state_right - state_center, axis)
 
     # Garante LEFT negativo / RIGHT positivo
 
@@ -184,40 +143,20 @@ def build_calibration(
 
         axis = -axis
 
-        s_left = np.dot(
-            state_left - state_center,
-            axis
-        )
+        s_left = np.dot(state_left - state_center, axis)
 
-        s_right = np.dot(
-            state_right - state_center,
-            axis
-        )
+        s_right = np.dot(state_right - state_center, axis)
 
     if s_left >= 0:
-        raise ValueError(
-            f"LEFT não ficou negativo: {s_left:.6f}"
-        )
+        raise ValueError(f"LEFT não ficou negativo: {s_left:.6f}")
 
     if s_right <= 0:
-        raise ValueError(
-            f"RIGHT não ficou positivo: {s_right:.6f}"
-        )
+        raise ValueError(f"RIGHT não ficou positivo: {s_right:.6f}")
 
-    return (
-        axis,
-        s_left,
-        s_right
-    )
+    return (axis, s_left, s_right)
 
 
-def calculate_steering(
-    state,
-    state_center,
-    axis,
-    s_left,
-    s_right
-):
+def calculate_steering(state, state_center, axis, s_left, s_right):
     """
     Retorna steering físico normalizado:
 
@@ -226,24 +165,17 @@ def calculate_steering(
         RIGHT  = +1
     """
 
-    s = np.dot(
-        state - state_center,
-        axis
-    )
+    s = np.dot(state - state_center, axis)
 
     if s < 0:
 
-        steering = (
-            s / abs(s_left)
-        )
+        steering = s / abs(s_left)
 
         side = "LEFT"
 
     elif s > 0:
 
-        steering = (
-            s / abs(s_right)
-        )
+        steering = s / abs(s_right)
 
         side = "RIGHT"
 
@@ -252,23 +184,15 @@ def calculate_steering(
         steering = 0.0
         side = "CENTER"
 
-    steering = float(
-        np.clip(
-            steering,
-            -1.0,
-            1.0
-        )
-    )
+    steering = float(np.clip(steering, -1.0, 1.0))
 
-    return (
-        steering,
-        side
-    )
+    return (steering, side)
 
 
 # ============================================================
 # OPENVR
 # ============================================================
+
 
 def find_controllers(vr, poses):
 
@@ -278,14 +202,9 @@ def find_controllers(vr, poses):
     left_index = None
     right_index = None
 
-    for i in range(
-        openvr.k_unMaxTrackedDeviceCount
-    ):
+    for i in range(openvr.k_unMaxTrackedDeviceCount):
 
-        if (
-            vr.getTrackedDeviceClass(i)
-            != openvr.TrackedDeviceClass_Controller
-        ):
+        if vr.getTrackedDeviceClass(i) != openvr.TrackedDeviceClass_Controller:
             continue
 
         pose = poses[i]
@@ -293,45 +212,23 @@ def find_controllers(vr, poses):
         if not pose.bPoseIsValid:
             continue
 
-        role = (
-            vr.getControllerRoleForTrackedDeviceIndex(i)
-        )
+        role = vr.getControllerRoleForTrackedDeviceIndex(i)
 
-        matrix = (
-            pose.mDeviceToAbsoluteTracking
-        )
+        matrix = pose.mDeviceToAbsoluteTracking
 
-        position = np.array(
-            [
-                matrix[0][3],
-                matrix[1][3],
-                matrix[2][3]
-            ],
-            dtype=float
-        )
+        position = np.array([matrix[0][3], matrix[1][3], matrix[2][3]], dtype=float)
 
-        if (
-            role
-            == openvr.TrackedControllerRole_LeftHand
-        ):
+        if role == openvr.TrackedControllerRole_LeftHand:
 
             left_position = position
             left_index = i
 
-        elif (
-            role
-            == openvr.TrackedControllerRole_RightHand
-        ):
+        elif role == openvr.TrackedControllerRole_RightHand:
 
             right_position = position
             right_index = i
 
-    return (
-        left_position,
-        right_position,
-        left_index,
-        right_index
-    )
+    return (left_position, right_position, left_index, right_index)
 
 
 def get_controller_state(vr, device_index):
@@ -341,11 +238,7 @@ def get_controller_state(vr, device_index):
 
     try:
 
-        success, state = (
-            vr.getControllerState(
-                device_index
-            )
-        )
+        success, state = vr.getControllerState(device_index)
 
         if not success:
             return None
@@ -361,82 +254,54 @@ def get_controller_state(vr, device_index):
 # BOTÕES
 # ============================================================
 
+
 def button_pressed(state, bit):
 
     if state is None:
         return False
 
-    return bool(
-        state.ulButtonPressed
-        & (1 << bit)
-    )
+    return bool(state.ulButtonPressed & (1 << bit))
 
 
-def update_sense_buttons(
-    gamepad,
-    left_state,
-    right_state
-):
+def update_sense_buttons(gamepad, left_state, right_state):
 
-    for (
-        side,
-        bit
-    ), xbox_button in SENSE_TO_XBOX.items():
+    for (side, bit), xbox_button in SENSE_TO_XBOX.items():
 
         if side == "left":
             state = left_state
         else:
             state = right_state
 
-        if button_pressed(
-            state,
-            bit
-        ):
+        if button_pressed(state, bit):
 
-            gamepad.press_button(
-                button=xbox_button
-            )
+            gamepad.press_button(button=xbox_button)
 
         else:
 
-            gamepad.release_button(
-                button=xbox_button
-            )
+            gamepad.release_button(button=xbox_button)
 
 
 # ============================================================
 # TRIGGERS
 # ============================================================
 
-def get_trigger_value(
-    state,
-    axis_index
-):
+
+def get_trigger_value(state, axis_index):
 
     if state is None:
         return 0.0
 
-    value = (
-        state.rAxis[axis_index].x
-    )
+    value = state.rAxis[axis_index].x
 
-    return float(
-        np.clip(
-            value,
-            0.0,
-            1.0
-        )
-    )
+    return float(np.clip(value, 0.0, 1.0))
 
 
 # ============================================================
 # STEERING -> XBOX
 # ============================================================
 
-def steering_to_stick(
-    steering,
-    sensitivity
-):
+
+def steering_to_stick(steering, sensitivity):
     """
     Curva mais sensível perto do centro.
 
@@ -452,37 +317,18 @@ def steering_to_stick(
 
     STEERING_EXPONENT = 0.65
 
-    steering = float(
-        np.clip(
-            steering,
-            -1.0,
-            1.0
-        )
-    )
+    steering = float(np.clip(steering, -1.0, 1.0))
 
-    sign = (
-        1.0
-        if steering >= 0
-        else -1.0
-    )
+    sign = 1.0 if steering >= 0 else -1.0
 
-    magnitude = (
-        abs(steering)
-        ** STEERING_EXPONENT
-    )
+    magnitude = abs(steering) ** STEERING_EXPONENT
 
     x = sign * magnitude
 
     # sensitivity continua sendo um ganho geral
     x *= sensitivity
 
-    x = float(
-        np.clip(
-            x,
-            -1.0,
-            1.0
-        )
-    )
+    x = float(np.clip(x, -1.0, 1.0))
 
     # IMPORTANTE:
     # steering não usa o eixo Y.
@@ -492,40 +338,22 @@ def steering_to_stick(
 
 
 def update_virtual_gamepad(
-    gamepad,
-    pedal,
-    max_pulse_per_sec,
-    steering,
-    sensitivity,
-    left_state,
-    right_state
+    gamepad, pedal, max_pulse_per_sec, steering, sensitivity, left_state, right_state
 ):
 
     # --------------------------------------------------------
     # Analógico esquerdo
     # --------------------------------------------------------
 
-    stick_x, stick_y = (
-        steering_to_stick(
-            steering,
-            sensitivity
-        )
-    )
+    stick_x, stick_y = steering_to_stick(steering, sensitivity)
 
-    gamepad.left_joystick_float(
-        x_value_float=stick_x,
-        y_value_float=stick_y
-    )
+    gamepad.left_joystick_float(x_value_float=stick_x, y_value_float=stick_y)
 
     # --------------------------------------------------------
     # Botões
     # --------------------------------------------------------
 
-    update_sense_buttons(
-        gamepad,
-        left_state,
-        right_state
-    )
+    update_sense_buttons(gamepad, left_state, right_state)
 
     # --------------------------------------------------------
     # Triggers
@@ -534,69 +362,39 @@ def update_virtual_gamepad(
     l2 = 0.0
     r2 = 0.0
 
-
-    l2 = get_trigger_value(
-        left_state,
-        L2_AXIS
-    )
+    l2 = get_trigger_value(left_state, L2_AXIS)
 
     if pedal is not None:
         pps = pedal.get_pps()
-        r2 = pps_to_rt(
-            pps,
-            max_pulse_per_sec
-        )
+        r2 = pps_to_rt(pps, max_pulse_per_sec)
     else:
-        r2 = get_trigger_value(
-            right_state,
-            R2_AXIS
-        )
+        r2 = get_trigger_value(right_state, R2_AXIS)
 
-    gamepad.left_trigger_float(
-        value_float=l2
-    )
+    gamepad.left_trigger_float(value_float=l2)
 
-    gamepad.right_trigger_float(
-        value_float=r2
-    )
+    gamepad.right_trigger_float(value_float=r2)
 
     gamepad.update()
 
-    return (
-        stick_x,
-        stick_y,
-        l2,
-        r2
-    )
+    return (stick_x, stick_y, l2, r2)
 
 
 # ============================================================
 # PEDAL -> RT
 # ============================================================
 
-def pps_to_rt(
-    pps,
-    max_pps
-):
-    if (
-        max_pps is None
-        or
-        max_pps <= 0
-    ):
+
+def pps_to_rt(pps, max_pps):
+    if max_pps is None or max_pps <= 0:
         return 0.0
 
-    return float(
-        np.clip(
-            pps / max_pps,
-            0.0,
-            1.0
-        )
-    )
+    return float(np.clip(pps / max_pps, 0.0, 1.0))
 
 
 # ============================================================
 # MAIN
 # ============================================================
+
 
 def main():
 
@@ -604,25 +402,21 @@ def main():
 
     print("Iniciando OpenVR...")
 
-    openvr.init(
-        openvr.VRApplication_Other
-    )
+    openvr.init(openvr.VRApplication_Other)
 
     vr = openvr.VRSystem()
 
     print("Criando Xbox 360 virtual...")
 
-    gamepad = (
-        vg.VX360Gamepad()
-    )
+    gamepad = vg.VX360Gamepad()
 
     print("Conectando pedal...")
 
     pedal = None
-    
+
     if ENABLE_PEDAL:
         pedal = PedalSensor("COM3", 115200)
-        pedal.start() 
+        pedal.start()
 
     # --------------------------------------------------------
     # Calibração
@@ -648,50 +442,29 @@ def main():
     smoothed_steering = 0.0
 
     print()
-    print(
-        "BIKETRON VR -> Xbox"
-    )
-    print(
-        "=================="
-    )
+    print("BIKETRON VR -> Xbox")
+    print("==================")
     print()
 
-    print(
-        "C = centro"
-    )
+    print("C = centro")
 
-    print(
-        "L = máximo esquerdo"
-    )
+    print("L = máximo esquerdo")
 
-    print(
-        "R = máximo direito"
-    )
+    print("R = máximo direito")
 
-    print(
-        "X = reset calibração"
-    )
+    print("X = reset calibração")
 
     print()
-    print(
-        "[ = diminuir sensibilidade"
-    )
+    print("[ = diminuir sensibilidade")
 
-    print(
-        "] = aumentar sensibilidade"
-    )
+    print("] = aumentar sensibilidade")
 
     print()
-    print(
-        "Q = sair"
-    )
+    print("Q = sair")
 
     print()
 
-    print(
-        f"Sensibilidade inicial: "
-        f"{STEERING_SENSITIVITY:.2f}"
-    )
+    print(f"Sensibilidade inicial: " f"{STEERING_SENSITIVITY:.2f}")
 
     print()
 
@@ -703,37 +476,15 @@ def main():
             # OPENVR
             # =================================================
 
-            poses = (
-                vr.getDeviceToAbsoluteTrackingPose(
-                    openvr.TrackingUniverseStanding,
-                    0,
-                    openvr.k_unMaxTrackedDeviceCount
-                )
+            poses = vr.getDeviceToAbsoluteTrackingPose(
+                openvr.TrackingUniverseStanding, 0, openvr.k_unMaxTrackedDeviceCount
             )
 
-            (
-                left_pos,
-                right_pos,
-                left_index,
-                right_index
-            ) = find_controllers(
-                vr,
-                poses
-            )
+            left_pos, right_pos, left_index, right_index = find_controllers(vr, poses)
 
-            left_controller_state = (
-                get_controller_state(
-                    vr,
-                    left_index
-                )
-            )
+            left_controller_state = get_controller_state(vr, left_index)
 
-            right_controller_state = (
-                get_controller_state(
-                    vr,
-                    right_index
-                )
-            )
+            right_controller_state = get_controller_state(vr, right_index)
 
             # =================================================
             # ESTADO DO GUIDÃO
@@ -741,18 +492,9 @@ def main():
 
             current_state = None
 
-            if (
-                left_pos is not None
-                and
-                right_pos is not None
-            ):
+            if left_pos is not None and right_pos is not None:
 
-                current_state = (
-                    make_state(
-                        left_pos,
-                        right_pos
-                    )
-                )
+                current_state = make_state(left_pos, right_pos)
 
             # =================================================
             # STEERING
@@ -761,32 +503,15 @@ def main():
             raw_steering = 0.0
             side = "WAIT"
 
-            if (
-                current_state is not None
-                and
-                calibration_complete
-            ):
+            if current_state is not None and calibration_complete:
 
-                (
-                    raw_steering,
-                    side
-                ) = calculate_steering(
-                    current_state,
-                    state_center,
-                    axis,
-                    s_left,
-                    s_right
+                raw_steering, side = calculate_steering(
+                    current_state, state_center, axis, s_left, s_right
                 )
 
-                smoothed_steering += (
-                    raw_steering
-                    - smoothed_steering
-                ) * SMOOTHING
+                smoothed_steering += (raw_steering - smoothed_steering) * SMOOTHING
 
-                if (
-                    abs(raw_steering)
-                    < 0.01
-                ):
+                if abs(raw_steering) < 0.01:
 
                     side = "CENTER"
 
@@ -794,19 +519,14 @@ def main():
             # XBOX
             # =================================================
 
-            (
-                stick_x,
-                stick_y,
-                l2,
-                r2
-            ) = update_virtual_gamepad(
+            stick_x, stick_y, l2, r2 = update_virtual_gamepad(
                 gamepad,
                 pedal,
                 max_pulse_per_sec,
                 smoothed_steering,
                 STEERING_SENSITIVITY,
                 left_controller_state,
-                right_controller_state
+                right_controller_state,
             )
 
             # =================================================
@@ -824,7 +544,7 @@ def main():
                     f"| Xbox analog={stick_x:+.3f} "
                     f"| R2 ={r2:+.3f}       ",
                     end="",
-                    flush=True
+                    flush=True,
                 )
 
             elif current_state is not None:
@@ -842,7 +562,6 @@ def main():
 
                 if max_pulse_per_sec is None:
                     missing.append("M")
-                
 
                 print(
                     "\r"
@@ -850,17 +569,12 @@ def main():
                     f"{' '.join(missing):8} "
                     f"| Xbox ativo       ",
                     end="",
-                    flush=True
+                    flush=True,
                 )
 
             else:
 
-                print(
-                    "\r"
-                    "Aguardando os dois Sense...       ",
-                    end="",
-                    flush=True
-                )
+                print("\r" "Aguardando os dois Sense...       ", end="", flush=True)
 
             # =================================================
             # TECLADO
@@ -868,11 +582,7 @@ def main():
 
             if msvcrt.kbhit():
 
-                key = (
-                    msvcrt
-                    .getwch()
-                    .lower()
-                )
+                key = msvcrt.getwch().lower()
 
                 # ------------------------------------------------
                 # QUIT
@@ -881,9 +591,7 @@ def main():
                 if key == "q":
 
                     print()
-                    print(
-                        "Saindo..."
-                    )
+                    print("Saindo...")
 
                     break
 
@@ -893,20 +601,12 @@ def main():
 
                 if key == "[":
 
-                    STEERING_SENSITIVITY -= (
-                        SENSITIVITY_STEP
-                    )
+                    STEERING_SENSITIVITY -= SENSITIVITY_STEP
 
-                    STEERING_SENSITIVITY = max(
-                        0.05,
-                        STEERING_SENSITIVITY
-                    )
+                    STEERING_SENSITIVITY = max(0.05, STEERING_SENSITIVITY)
 
                     print()
-                    print(
-                        f"Sensibilidade: "
-                        f"{STEERING_SENSITIVITY:.2f}"
-                    )
+                    print(f"Sensibilidade: " f"{STEERING_SENSITIVITY:.2f}")
 
                     continue
 
@@ -916,20 +616,12 @@ def main():
 
                 if key == "]":
 
-                    STEERING_SENSITIVITY += (
-                        SENSITIVITY_STEP
-                    )
+                    STEERING_SENSITIVITY += SENSITIVITY_STEP
 
-                    STEERING_SENSITIVITY = min(
-                        1.0,
-                        STEERING_SENSITIVITY
-                    )
+                    STEERING_SENSITIVITY = min(1.0, STEERING_SENSITIVITY)
 
                     print()
-                    print(
-                        f"Sensibilidade: "
-                        f"{STEERING_SENSITIVITY:.2f}"
-                    )
+                    print(f"Sensibilidade: " f"{STEERING_SENSITIVITY:.2f}")
 
                     continue
 
@@ -953,9 +645,7 @@ def main():
                     smoothed_steering = 0.0
 
                     print()
-                    print(
-                        "Calibração apagada."
-                    )
+                    print("Calibração apagada.")
 
                     continue
 
@@ -966,10 +656,7 @@ def main():
                 if current_state is None:
 
                     print()
-                    print(
-                        "Os dois Sense precisam "
-                        "estar rastreados."
-                    )
+                    print("Os dois Sense precisam " "estar rastreados.")
 
                     continue
 
@@ -979,16 +666,12 @@ def main():
 
                 if key == "c":
 
-                    state_center = (
-                        current_state.copy()
-                    )
+                    state_center = current_state.copy()
 
                     calibration_complete = False
 
                     print()
-                    print(
-                        "CENTRO salvo."
-                    )
+                    print("CENTRO salvo.")
 
                 # ------------------------------------------------
                 # LEFT
@@ -996,16 +679,12 @@ def main():
 
                 elif key == "l":
 
-                    state_left = (
-                        current_state.copy()
-                    )
+                    state_left = current_state.copy()
 
                     calibration_complete = False
 
                     print()
-                    print(
-                        "MÁXIMO ESQUERDO salvo."
-                    )
+                    print("MÁXIMO ESQUERDO salvo.")
 
                 # ------------------------------------------------
                 # RIGHT
@@ -1013,16 +692,12 @@ def main():
 
                 elif key == "r":
 
-                    state_right = (
-                        current_state.copy()
-                    )
+                    state_right = current_state.copy()
 
                     calibration_complete = False
 
                     print()
-                    print(
-                        "MÁXIMO DIREITO salvo."
-                    )
+                    print("MÁXIMO DIREITO salvo.")
 
                 # ------------------------------------------------
                 # PEDAL
@@ -1033,27 +708,17 @@ def main():
 
                     if current_pps > 0:
 
-                        max_pulse_per_sec = (
-                            current_pps
-                        )
+                        max_pulse_per_sec = current_pps
 
                         print()
-                        print(
-                            "ACELERAÇÃO CALIBRADA:"
-                        )
+                        print("ACELERAÇÃO CALIBRADA:")
 
-                        print(
-                            f"{max_pulse_per_sec:.2f} PPS "
-                            "= RT 100%"
-                        )
+                        print(f"{max_pulse_per_sec:.2f} PPS " "= RT 100%")
 
                     else:
 
                         print()
-                        print(
-                            "PPS está em zero; "
-                            "pedale antes de apertar M."
-                        )
+                        print("PPS está em zero; " "pedale antes de apertar M.")
 
                 # ------------------------------------------------
                 # Temos C/L/R?
@@ -1061,24 +726,15 @@ def main():
 
                 if (
                     state_center is not None
-                    and
-                    state_left is not None
-                    and
-                    state_right is not None
-                    and
-                    max_pulse_per_sec is not None
+                    and state_left is not None
+                    and state_right is not None
+                    and max_pulse_per_sec is not None
                 ):
 
                     try:
 
-                        (
-                            axis,
-                            s_left,
-                            s_right
-                        ) = build_calibration(
-                            state_left,
-                            state_center,
-                            state_right
+                        axis, s_left, s_right = build_calibration(
+                            state_left, state_center, state_right
                         )
 
                         calibration_complete = True
@@ -1088,35 +744,19 @@ def main():
                         print()
                         print()
 
-                        print(
-                            "=== CALIBRAÇÃO CONCLUÍDA ==="
-                        )
+                        print("=== CALIBRAÇÃO CONCLUÍDA ===")
 
-                        print(
-                            f"LEFT   = "
-                            f"{s_left:+.6f}"
-                        )
+                        print(f"LEFT   = " f"{s_left:+.6f}")
 
-                        print(
-                            "CENTER = +0.000000"
-                        )
+                        print("CENTER = +0.000000")
 
-                        print(
-                            f"RIGHT  = "
-                            f"{s_right:+.6f}"
-                        )
+                        print(f"RIGHT  = " f"{s_right:+.6f}")
 
-                        print(
-                            f"MAX PPS  = "
-                            f"{max_pulse_per_sec}"
-                        )
+                        print(f"MAX PPS  = " f"{max_pulse_per_sec}")
 
                         print()
 
-                        print(
-                            f"Sensibilidade Xbox: "
-                            f"{STEERING_SENSITIVITY:.2f}"
-                        )
+                        print(f"Sensibilidade Xbox: " f"{STEERING_SENSITIVITY:.2f}")
 
                         print()
 
@@ -1127,24 +767,18 @@ def main():
                         print()
                         print()
 
-                        print(
-                            "ERRO NA CALIBRAÇÃO:"
-                        )
+                        print("ERRO NA CALIBRAÇÃO:")
 
                         print(e)
 
                         print()
 
-            time.sleep(
-                LOOP_INTERVAL
-            )
+            time.sleep(LOOP_INTERVAL)
 
     finally:
 
         print()
-        print(
-            "Resetando Xbox virtual..."
-        )
+        print("Resetando Xbox virtual...")
 
         try:
 
@@ -1157,9 +791,7 @@ def main():
 
         openvr.shutdown()
 
-        print(
-            "OpenVR finalizado."
-        )
+        print("OpenVR finalizado.")
 
 
 if __name__ == "__main__":
