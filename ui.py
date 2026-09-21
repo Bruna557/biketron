@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 from curve_editor import CurveEditor, MAX_CURVE_VALUE
 from open_vr_wrapper import find_controllers, get_controller_state, make_state
 from hardware import PedalSensor
-from controller import update_virtual_gamepad, calculate_steering
+from controller import update_virtual_gamepad, calculate_steering, button_pressed
 from calibration import build_calibration
 
 steeringSensitivity = 1.00
@@ -78,6 +78,7 @@ class JoystickWorker(QtCore.QThread):
             pedal = PedalSensor(serialPort, baudRate)
             pedal.start()
         self.pedal = pedal
+        window.pedal = pedal
 
         axis = None
         s_left = None
@@ -126,6 +127,36 @@ class JoystickWorker(QtCore.QThread):
                 right_controller_state = get_controller_state(self.vr, right_index)
 
                 # =================================================
+                # CALIBRAÇÃO E START
+                # =================================================
+
+                # calibrate center when pressing cross and square
+                if button_pressed(right_controller_state, 7) and button_pressed(
+                    left_controller_state, 7
+                ):
+                    window.setCenter()
+                # calibrate right when pressing cross and triangle
+                if button_pressed(right_controller_state, 7) and button_pressed(
+                    left_controller_state, 1
+                ):
+                    window.setRight()
+                # calibrate right when pressing cross and L1
+                if button_pressed(right_controller_state, 7) and button_pressed(
+                    left_controller_state, 34
+                ):
+                    window.setLeft()
+                # calibrate pedal when pressing cross and L3
+                if button_pressed(right_controller_state, 7) and button_pressed(
+                    left_controller_state, 32
+                ):
+                    window.setPps()
+                # start game when pressing R3 and L3
+                if button_pressed(right_controller_state, 32) and button_pressed(
+                    left_controller_state, 32
+                ):
+                    os.startfile("steam://rungameid/3936520")
+
+                # =================================================
                 # ESTADO DO GUIDÃO
                 # =================================================
 
@@ -153,7 +184,9 @@ class JoystickWorker(QtCore.QThread):
                     if not calibration_complete:
                         calibration_complete = True
                         axis, s_left, s_right = build_calibration(
-                            window.state_left, window.state_center, window.state_right
+                            window.state_left,
+                            window.state_center,
+                            window.state_right,
                         )
 
                     raw_steering, side = calculate_steering(
@@ -165,7 +198,8 @@ class JoystickWorker(QtCore.QThread):
                         window.steeringCurve.get_or_build_curve_mapping()
                     )
                     steering_magnitude = window.interpolate_curve(
-                        steering_scaled_input * MAX_CURVE_VALUE, steering_curve_points
+                        steering_scaled_input * MAX_CURVE_VALUE,
+                        steering_curve_points,
                     )
                     window.update_steering_curve_input(abs(steering_magnitude))
                     steering_stick_x = (
@@ -187,7 +221,7 @@ class JoystickWorker(QtCore.QThread):
                     right_controller_state,
                 )
 
-                print(f"stickX: {steering_stick_x}  pedal: {pedal_trigger}")
+                # print(f"stickX: {steering_stick_x}  pedal: {pedal_trigger}")
 
             time.sleep(loopInterval)
 
@@ -646,4 +680,5 @@ try:
 
     app.exec()
 except KeyboardInterrupt:
+    print("Shutting down...")
     openvr.shutdown()
