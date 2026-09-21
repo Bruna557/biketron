@@ -13,26 +13,19 @@ SENSE_TO_XBOX = {
     # L1 -> LB
     ("left", 34): vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
     # R1 -> RB
-    ("right", 34):
-    # vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
-    vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
+    ("right", 34): vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
     # L3
     ("left", 32): vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
     # R3
     ("right", 32): vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
-    # --------------------------------------------------------
-    # CREATE / OPTIONS
-    # --------------------------------------------------------
-    # # Create -> Back / View
-    # ("left", 5):
-    #     vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
-    # # Options -> Start / Menu
-    # ("right", 5):
-    #     vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
 }
 
 L2_AXIS = 1
 R2_AXIS = 1
+L_STICK_AXIS = 0
+R_STICK_AXIS = 0
+
+ANALOG_DEADZONE = 0.20
 
 
 def calculate_steering(state, state_center, axis, s_left, s_right):
@@ -104,22 +97,50 @@ def get_trigger_value(state, axis_index):
     return float(np.clip(value, 0.0, 1.0))
 
 
+def get_analog_value(state, axis_index):
+    if state is None:
+        return (0.0, 0.0)
+
+    value_x = state.rAxis[axis_index].x
+    value_y = state.rAxis[axis_index].y
+
+    return (value_x, value_y)
+
+
 def update_virtual_gamepad(
     gamepad, steering_stick_x, steering_stick_y, pedal_trigger, left_state, right_state
 ):
 
-    gamepad.left_joystick_float(
-        x_value_float=steering_stick_x, y_value_float=steering_stick_y
-    )
+    # Right analog
+    r_stick_x, r_stick_y = get_analog_value(right_state, R_STICK_AXIS)
+    gamepad.right_joystick_float(r_stick_x, r_stick_y)
 
-    update_sense_buttons(gamepad, left_state, right_state)
+    # Right analog: from Sense or steering
+    l_stick_x, l_stick_y = get_analog_value(right_state, L_STICK_AXIS)
+    if l_stick_x > ANALOG_DEADZONE or l_stick_y > ANALOG_DEADZONE:
+        gamepad.left_joystick_float(l_stick_x, l_stick_y)
+    else:
+        gamepad.left_joystick_float(
+            x_value_float=steering_stick_x, y_value_float=steering_stick_y
+        )
 
+    # Triggers
     l2 = get_trigger_value(left_state, L2_AXIS)
 
-    r2 = pedal_trigger or get_trigger_value(right_state, R2_AXIS)
+    r2 = pedal_trigger
 
     gamepad.left_trigger_float(value_float=l2)
 
     gamepad.right_trigger_float(value_float=r2)
+
+    # Other buttons
+    update_sense_buttons(gamepad, left_state, right_state)
+
+    # Bind Sense R2 to gamepad start since we can't get the options button to work
+    start = get_trigger_value(right_state, R2_AXIS)
+    if start > 0.8:
+        gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_START)
+    else:
+        gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_START)
 
     gamepad.update()
