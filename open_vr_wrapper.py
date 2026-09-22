@@ -38,7 +38,20 @@ def find_controllers(vr, poses):
 
         matrix = pose.mDeviceToAbsoluteTracking
 
-        position = np.array([matrix[0][3], matrix[1][3], matrix[2][3]], dtype=float)
+        position = np.array(
+            [
+                matrix[0][0],
+                matrix[0][1],
+                matrix[0][2],
+                matrix[1][0],
+                matrix[1][1],
+                matrix[1][2],
+                matrix[2][0],
+                matrix[2][1],
+                matrix[2][2],
+            ],
+            dtype=float,
+        )
 
         if role == openvr.TrackedControllerRole_LeftHand:
 

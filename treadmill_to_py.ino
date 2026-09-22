@@ -1,27 +1,19 @@
-#define REED_PIN 13
+#define HALL_PIN 13
 
 // Use 'volatile' for any variable modified in an ISR
 volatile uint32_t pulseCount = 0;
 // uint32_t lastReportedCount = 0;
 
-void IRAM_ATTR reedISR() {
-  static uint32_t lastInterruptTime = 0;
-  uint32_t interruptTime = millis();
-
-  // Debounce: ignore a pulse that arrives too soon after the previous one (cheap reed
-  // switches can bounce). Raise the threshold below if you get phantom pulses.
-  if (interruptTime - lastInterruptTime > 2) {
-    pulseCount++;
-  }
-  lastInterruptTime = interruptTime;
+void IRAM_ATTR hallISR() {
+  pulseCount++;
 }
 
 void setup() {
   // Use INPUT_PULLUP to keep the line HIGH until the reed switch pulls it to GND
-  pinMode(REED_PIN, INPUT_PULLUP);
+  pinMode(HALL_PIN, INPUT_PULLUP);
   
   // FALLING means the code triggers exactly once when GND is touched
-  attachInterrupt(digitalPinToInterrupt(REED_PIN), reedISR, FALLING);
+  attachInterrupt(digitalPinToInterrupt(HALL_PIN), hallISR, FALLING);
 
   Serial.begin(115200);
   Serial.println("ESP32 Treadmill Sensor Ready...");
@@ -34,6 +26,7 @@ void loop() {
   //   Serial.print("Pulses: ");
   //   Serial.println(lastReportedCount);
   // }
+
   if (Serial.available() > 0) {
     char command = Serial.read();
     

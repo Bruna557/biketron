@@ -24,8 +24,12 @@ from PyQt6.QtWidgets import (
 from curve_editor import CurveEditor, MAX_CURVE_VALUE
 from open_vr_wrapper import find_controllers, get_controller_state, make_state
 from hardware import PedalSensor
-from controller import update_virtual_gamepad, calculate_steering, button_pressed
-from calibration import build_calibration
+from controller import (
+    update_virtual_gamepad,
+    calculate_steering,
+    button_pressed,
+    build_calibration,
+)
 
 steeringSensitivity = 1.00
 steeringSmoothing = 0.25
@@ -83,8 +87,6 @@ class JoystickWorker(QtCore.QThread):
         axis = None
         s_left = None
         s_right = None
-
-        filtered_speed = 0.0
 
         calibration_complete = False
 
@@ -162,9 +164,9 @@ class JoystickWorker(QtCore.QThread):
 
                 current_state = None
 
-                if left_pos is not None and right_pos is not None:
+                if left_pos is not None:
 
-                    current_state = make_state(left_pos, right_pos)
+                    current_state = left_pos
                     window.current_state = current_state
 
                 # =================================================
@@ -664,6 +666,7 @@ class MainWindow(QWidget):
     def setPps(self):
         current_pps = self.pedal.get_pps()
         self.max_pulse_per_sec = int(current_pps)
+        self.calibrationPpsLine.setText(str(self.max_pulse_per_sec))
         print(self.max_pulse_per_sec)
 
     def format_sense_state(self, state):

@@ -4,7 +4,7 @@ import time
 
 
 class PedalSensor:
-    def __init__(self, port="COM3", baudrate=115200, poll_hz=20.0):
+    def __init__(self, port="COM3", baudrate=115200, poll_hz=10.0):
         self.port = port
         self.baudrate = baudrate
 
@@ -167,6 +167,12 @@ class PedalSensor:
         self.pps = pulses_per_sec
         self.last_timestamp = timestamp
         self.last_pulse_count = pulse_count
+        # print(
+        #     f"count={pulse_count:8d} | "
+        #     f"delta={new_pulses:3d} | "
+        #     f"dt={time_delta_ms:4d}ms | "
+        #     f"pps={self.pps:7.1f}"
+        # )
 
     # ========================================================
     # GETTERS

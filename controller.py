@@ -28,6 +28,42 @@ R_STICK_AXIS = 0
 ANALOG_DEADZONE = 0.20
 
 
+def build_calibration(state_left, state_center, state_right):
+
+    # Eixo principal do movimento entre os dois extremos.
+    axis = state_right - state_left
+
+    length = np.linalg.norm(axis)
+
+    if length < 1e-6:
+        raise RuntimeError("LEFT e RIGHT ficaram praticamente iguais.")
+
+    axis /= length
+
+    # Coordenadas dos extremos relativamente ao centro.
+    s_left = np.dot(state_left - state_center, axis)
+
+    s_right = np.dot(state_right - state_center, axis)
+
+    # Garantir convenção:
+    #
+    # LEFT  < 0
+    # RIGHT > 0
+
+    if s_left > s_right:
+
+        axis = -axis
+
+        s_left = np.dot(state_left - state_center, axis)
+
+        s_right = np.dot(state_right - state_center, axis)
+
+    if s_left >= 0 or s_right <= 0:
+        raise RuntimeError("CENTER não ficou entre LEFT e RIGHT.")
+
+    return axis, s_left, s_right
+
+
 def calculate_steering(state, state_center, axis, s_left, s_right):
     """
     Retorna steering físico normalizado:
